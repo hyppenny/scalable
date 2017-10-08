@@ -27,3 +27,15 @@ class ChatInfo():
         self.roomRef = {}
 
 
+class Process():
+    def __init__(self):
+        self.room = []
+        self.id = id
+
+    def send_message(self, text):
+        pass
+
+    def process_message(self):
+        pass
+
+    
