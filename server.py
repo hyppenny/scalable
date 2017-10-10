@@ -1,4 +1,5 @@
 import socket, sys
+from threading import Thread
 
 if (len(sys.argv) < 3):
     print("Server usage: python server.py IP PORT")
@@ -35,7 +36,26 @@ class Process():
     def send_message(self, text):
         pass
 
-    def process_message(self):
-        pass
+    def process_message(self, message):
+        if message == "KILL_SERVICE\n":
+            self.pool.kill()
+        elif message.startswith("HELO "):
+            self.connect.send("hello")
 
-    
+
+class Pool():
+    def __init__(self):
+        self.lockClient = threading.Lock()
+        self.lockState = threading.Lock()
+        self.client = []
+        self.worker = []
+        self.state = ChatInfo()
+        self.threadCounter = 0
+        self.kill = False
+        for i in range(2):
+            reply = "HELO"
+            return reply
+
+    def kill(self):
+        self.kill = True
+
