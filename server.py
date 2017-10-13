@@ -15,12 +15,17 @@ class ChatRoom():
         self.client = []
 
 
-class Server():
-    def __init__(self):
+class Server(Thread):
+    def __init__(self, pool):
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server.bind(("0.0.0.0", PORT))
 
+    def run(self):
+        self.server.listen(5)
+        (connect, (IP,PORT)) = self.server.accept()
+        print("Connection Established")
+        self.pool.assignClient
 
 class ChatInfo():
     def __init__(self):
@@ -29,9 +34,10 @@ class ChatInfo():
 
 
 class Process():
-    def __init__(self):
+    def __init__(self, poll, id):
         self.room = []
         self.id = id
+        self.pool = pool
 
     def send_message(self, text):
         pass
@@ -65,8 +71,6 @@ class Process():
 
 class Pool():
     def __init__(self):
-        self.lockClient = threading.Lock()
-        self.lockState = threading.Lock()
         self.client = []
         self.worker = []
         self.state = ChatInfo()
@@ -80,5 +84,5 @@ class Pool():
     def kill(self):
         self.kill = True
 
-
-
+    def assignClient(self, connect):
+        pass
