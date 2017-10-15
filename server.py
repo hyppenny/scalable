@@ -25,19 +25,24 @@ class Server(Thread):
         self.server.listen(5)
         (connect, (IP,PORT)) = self.server.accept()
         print("Connection Established")
-        self.pool.assignClient
+        self.pool.assignClient(connect)
+
 
 class ChatInfo():
     def __init__(self):
         self.room = {}
         self.roomRef = {}
+        self.ID_Counter = 0
+        self.REF_Counter = 0
 
 
-class Process():
-    def __init__(self, poll, id):
+class Process(Thread):
+    def __init__(self, pool, id):
+        Thread.__init__(self)
         self.room = []
         self.id = id
         self.pool = pool
+        self.connect = None
 
     def send_message(self, text):
         pass
@@ -78,11 +83,13 @@ class Pool():
         self.kill = False
         self.connect = None
         for i in range(2):
-            reply = "HELO"
-            return reply
+            self.process.append(Process(self, self.threadCounter))
+            self.process[i].start()
+            self.threadCounter = self.threadCounter + 1
 
     def kill(self):
         self.kill = True
 
     def assignClient(self, connect):
-        pass
+        connect.setblocking(0)
+        self.client.append(connect)
