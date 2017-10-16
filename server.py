@@ -17,13 +17,15 @@ class ChatRoom():
 
 class Server(Thread):
     def __init__(self, pool):
+        Thread.__init__(self)
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server.bind(("0.0.0.0", PORT))
+        self.pool = pool
 
     def run(self):
         self.server.listen(5)
-        (connect, (IP,PORT)) = self.server.accept()
+        (connect, (ip, port)) = self.server.accept()
         print("Connection Established")
         self.pool.assignClient(connect)
 
@@ -43,36 +45,92 @@ class Process(Thread):
         self.id = id
         self.pool = pool
         self.connect = None
+        #self.associatedId = self.pool.state.ID_Counter
 
     def send_message(self, text):
-        pass
+        self.connect.send(text.encode())
+        print("Thread 0 send this to client:{1}".format(self.id, text))
+
+    def readMessage(self):
+        for t in self.room:
+            roomRef = t[0]
+            clientID = t[1]
+            room = self.pool.state.rooms[roomRef]
+            for index in range(len(room.message)):
+                    if clientID in room.message[index][2]:
+                        room.message[index][2].remove(clientID)
+                        self.send_message("stringx")
+
+            room.messages[:] = [m for m in room.messages if m[2]]
+
+    def run(self):
+        while not (self.pool.kill):
+            if (len(self.pool.clients)) > 0:
+                self.connect = self.pool.client.pop(0)
+            if self.connect is None:
+                continue
+            print("Thread {0} got a client".format(self.id))
+            self.pool.state.ID_Counter = self.pool.state.ID_Counter + 1
+            self.readMessage()
+            message = self.connect.recv(2048).decode().replace("\\n", '\n')
+            print("Thread {0} received message {1}.".format(self.id, message.rstrip()))
+            print("Thread {0} closing client socket".format(self.id))
+            self.connect.close()
+            self.connect = None
+        print("Thread {0} dying".format(self.id))
+
+    def constructReply(self, data):
+        reply = "HELO {0}\nIP:{1}\nPort:{2}\nStudentID:{3}\n".format(data, socket.gethostbyname(socket.gethostname()),
+                                                                     PORT, 16336617)
+        return reply
+
+    def constructJoinReply(self, roomName, roomRef, clientId):
+        reply = ("JOINED_CHATROOM: {0}\n"
+                 "SERVER_IP: {1}\n"
+                 "PORT: {2}\n"
+                 "ROOM_REF: {3}\n"
+                 "JOIN_ID: {4}\n"
+                 ).format(roomName, socket.gethostbyname(socket.gethostname()), PORT, roomRef, clientId)
+        return reply
+
+    def constructLeaveReply(self, roomRef, clientId):
+        reply = ("LEFT_CHATROOM: {0}\n"
+                 "JOIN_ID: {1}\n"
+                 ).format(roomRef, clientId)
+        return reply
+
+    def constructMessage(self, roomRef, clientName, message):
+        reply = ("CHAT: {0}\n"
+                 "CLIENT_NAME: {1}\n"
+                 "MESSAGE: {2}\n\n"
+                 ).format(roomRef, clientName, message)
+        return reply
 
     def process_message(self, message):
         if message == "KILL_SERVICE\n":
-            self.pool.kill()
+            self.pool.killService()
+            return True
         elif message.startswith("HELO "):
-            self.connect.send("hello")
+            self.sendClient("hello")
+            return False
+
         elif message.startswith("JOIN_CHATROOM: "):
             roomName = message.splitlines()[0][len("JOIN_CHATROOM: "):]
             clientName = message.splitlines()[3][len("CLIENT_NAME: "):]
-            self.pool.lockState.acquire()
-
-            clientID = self.pool.state.idCounter
-            self.pool.state.idCounter += 1
+            clientID = self.associatedId
 
             if roomName in self.pool.state.rooms:
-                roomRef = self.pool.state.rooms[roomName].ref
+                roomRef = self.pool.state.roomRef[roomName]
             else:
                 roomRef = self.pool.state.refCounter
-                self.pool.state.rooms[roomName] = ChatRoom(roomRef)
+                self.pool.state.roomRef[roomName] = roomRef
+                self.pool.state.room[roomRef] = ChatRoom()
                 self.pool.state.refCounter += 1
-                room = self.pool.state.rooms[roomName]
+                room = self.pool.state.room[roomRef]
 
-            if (len(room.client) > 0):
                 joinMessage = "{0} has joined the chatroom".format(clientName)
-                room.messages.append([clientName, joinMessage, set(room.clients)])
-                self.pool.state.rooms[roomName].clients.append(clientID)
-                self.pool.lockState.release()
+                room.message.append([clientName, joinMessage, set(room.clients)])
+                return False
 
 class Pool():
     def __init__(self):
@@ -81,15 +139,27 @@ class Pool():
         self.state = ChatInfo()
         self.threadCounter = 0
         self.kill = False
-        self.connect = None
         for i in range(2):
             self.process.append(Process(self, self.threadCounter))
             self.process[i].start()
             self.threadCounter = self.threadCounter + 1
 
-    def kill(self):
+    def killService(self):
         self.kill = True
 
     def assignClient(self, connect):
         connect.setblocking(0)
         self.client.append(connect)
+
+
+print("Loading...")
+workerPool = Pool()
+serverThread = Server(workerPool)
+serverThread.start()
+print("Server Started")
+
+while True:
+    if workerPool.killRequested:
+        for worker in workerPool.workers:
+            worker.join()
+        break
