@@ -1,12 +1,12 @@
 import socket, sys
 from threading import Thread
 
-if (len(sys.argv) < 3):
-    print("Server usage: python server.py IP PORT")
-    sys.exit(0)
+# if (len(sys.argv) < 3):
+#     print("Server usage: python server.py IP PORT")
+#     sys.exit(0)
 
-PORT = sys.argv[2]
-PORT = int[PORT]
+PORT = 5555 #sys.argv[2]
+#PORT = int(PORT)
 
 
 class ChatRoom():
@@ -24,10 +24,11 @@ class Server(Thread):
         self.pool = pool
 
     def run(self):
-        self.server.listen(5)
-        (connect, (ip, port)) = self.server.accept()
-        print("Connection Established")
-        self.pool.assignClient(connect)
+        while True:
+            self.server.listen(5)
+            (connect, (ip, port)) = self.server.accept()
+            print("Connection Established")
+            self.pool.assignClient(connect)
 
 
 class ChatInfo():
@@ -45,7 +46,7 @@ class Process(Thread):
         self.id = id
         self.pool = pool
         self.connect = None
-        #self.associatedId = self.pool.state.ID_Counter
+
 
     def send_message(self, text):
         self.connect.send(text.encode())
@@ -64,12 +65,13 @@ class Process(Thread):
             room.messages[:] = [m for m in room.messages if m[2]]
 
     def run(self):
-        while not (self.pool.kill):
+        while not (self.pool.killService):
             if (len(self.pool.clients)) > 0:
                 self.connect = self.pool.client.pop(0)
             if self.connect is None:
                 continue
             print("Thread {0} got a client".format(self.id))
+            self.associatedId = self.pool.state.ID_Counter
             self.pool.state.ID_Counter = self.pool.state.ID_Counter + 1
             self.readMessage()
             message = self.connect.recv(2048).decode().replace("\\n", '\n')
@@ -77,11 +79,11 @@ class Process(Thread):
             print("Thread {0} closing client socket".format(self.id))
             self.connect.close()
             self.connect = None
-        print("Thread {0} dying".format(self.id))
+            print("Thread {0} dying".format(self.id))
 
     def constructReply(self, data):
         reply = "HELO {0}\nIP:{1}\nPort:{2}\nStudentID:{3}\n".format(data, socket.gethostbyname(socket.gethostname()),
-                                                                     PORT, 16336617)
+                                                                     PORT, 17304420)
         return reply
 
     def constructJoinReply(self, roomName, roomRef, clientId):
@@ -111,7 +113,7 @@ class Process(Thread):
             self.pool.killService()
             return True
         elif message.startswith("HELO "):
-            self.sendClient("hello")
+            self.send_message("hello")
             return False
 
         elif message.startswith("JOIN_CHATROOM: "):
@@ -132,10 +134,11 @@ class Process(Thread):
                 room.message.append([clientName, joinMessage, set(room.clients)])
                 return False
 
+
 class Pool():
     def __init__(self):
+        self.process  = []
         self.client = []
-        self.worker = []
         self.state = ChatInfo()
         self.threadCounter = 0
         self.kill = False
@@ -153,13 +156,13 @@ class Pool():
 
 
 print("Loading...")
-workerPool = Pool()
-serverThread = Server(workerPool)
+processPool = Pool()
+serverThread = Server(processPool)
 serverThread.start()
 print("Server Started")
 
 while True:
-    if workerPool.killRequested:
-        for worker in workerPool.workers:
-            worker.join()
+    if processPool.killService:
+        for process in processPool.process:
+            process.join()
         break
