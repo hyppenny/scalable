@@ -6,6 +6,7 @@ from threading import Thread
 #     sys.exit(0)
 
 PORT = 5555 #sys.argv[2]
+IP = "127.0.0.1"
 #PORT = int(PORT)
 
 
@@ -20,7 +21,7 @@ class Server(Thread):
         Thread.__init__(self)
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server.bind(("0.0.0.0", PORT))
+        self.server.bind((IP, PORT))
         self.pool = pool
 
     def run(self):
@@ -62,7 +63,7 @@ class Process(Thread):
                         room.message[index][2].remove(clientID)
                         self.send_message("stringx")
 
-            room.messages[:] = [m for m in room.messages if m[2]]
+            room.message[:] = [m for m in room.message if m[2]]
 
     def run(self):
         while not (self.pool.killService):
@@ -82,8 +83,8 @@ class Process(Thread):
             print("Thread {0} dying".format(self.id))
 
     def constructReply(self, data):
-        reply = "HELO {0}\nIP:{1}\nPort:{2}\nStudentID:{3}\n".format(data, socket.gethostbyname(socket.gethostname()),
-                                                                     PORT, 17304420)
+        reply = "{0}IP:{1}\nPort:{2}\nStudentID:{3}\n".format(data, IP,
+                                                              PORT, 17304420)
         return reply
 
     def constructJoinReply(self, roomName, roomRef, clientId):
