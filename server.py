@@ -142,9 +142,7 @@ class Process(Thread):
             clientId = int(message.splitlines()[1][len("JOIN_CHATROOM: "):])
             clientName = message.splitlines()[2][len("CLIENT_NAME: "):]
 
-            # Discard any messages left for us, and leave chatroom
             if (roomRef, clientId) in self.room:
-                # self.pool.lockState.acquire()
                 room = self.pool.state.rooms[roomRef]
                 for index in range(len(room.messages)):
                     if clientId in room.messages[index][2]:
@@ -154,7 +152,6 @@ class Process(Thread):
                 leaveMessage = "{0} has left the chatroom".format(clientName)
                 if (len(room.clients) > 0):
                     room.messages.append([clientName, leaveMessage, set(room.clients)])
-                    # self.pool.lockState.release()
 
             self.send_message(self.constructLeaveReply(roomRef, clientId))
             if (roomRef, clientId) in self.room:
@@ -162,6 +159,37 @@ class Process(Thread):
                 self.room.remove((roomRef, clientId))
 
             return False
+
+        elif message.startswith("CHAT: "):
+            roomRef = int(message.splitlines()[0][len("CHAT: "):])
+            clientId = int(message.splitlines()[1][len("JOIN_ID: "):])
+            clientName = message.splitlines()[2][len("CLIENT_NAME: "):]
+            message = message.splitlines()[3][len("MESSAGE: "):]
+
+            room = self.pool.state.rooms[roomRef]
+            if (len(room.clients) > 0):
+                room.messages.append([clientName, message, set(room.clients)])
+            return False
+
+        elif message.startswith("DISCONNECT: "):
+            clientName = message.splitlines()[2][len("CLIENT_NAME: "):]
+
+            for t in self.room:
+                roomRef = t[0]
+                clientId = t[1]
+                room = self.pool.state.rooms[roomRef]
+                for index in range(len(room.messages)):
+                    if clientId in room.messages[index][2]:
+                        room.messages[index][2].remove(clientId)
+                room.messages[:] = [m for m in room.messages if m[2]]
+                room.clients.remove(clientId)
+                discMessage = "{0} was disconnected".format(clientName)
+                if (len(room.clients) > 0):
+                    room.messages.append([clientName, discMessage, set(room.clients)])
+                self.send_message(self.constructMessage(roomRef, clientName, discMessage))
+
+            self.room = []
+            return True
 
 
 class Pool():
