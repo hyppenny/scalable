@@ -1,12 +1,12 @@
 import socket, sys
 from threading import Thread
 
-# if (len(sys.argv) < 3):
-#     print("Server usage: python server.py IP PORT")
-#     sys.exit(0)
+if (len(sys.argv) < 3):
+    print("Server usage: python server.py IP PORT")
+    sys.exit(0)
 
-PORT = 5555  # sys.argv[2]
-IP = "127.0.0.1"
+IP = sys.argv[1]
+PORT = int(sys.argv[2])
 
 
 class ChatRoom():
